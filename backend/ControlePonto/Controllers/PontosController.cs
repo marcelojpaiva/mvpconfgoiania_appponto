@@ -23,6 +23,70 @@ namespace ControlePonto.Controllers
         }
 
         /// <summary>
+        /// Retorna registros de ponto de funcionários filtrando por cargo
+        /// </summary>
+        [HttpGet("por-cargo")]
+        public async Task<ActionResult<IEnumerable<RegistroPontoResponseDto>>> GetPontosPorCargo(
+            [FromQuery] string cargo,
+            [FromQuery] DateTime? data = null,
+            [FromQuery] DateTime? dataInicio = null,
+            [FromQuery] DateTime? dataFim = null)
+        {
+            if (string.IsNullOrWhiteSpace(cargo))
+            {
+                return BadRequest("Cargo é obrigatório");
+            }
+
+            try
+            {
+                var query = _context.RegistrosPonto
+                    .Include(r => r.Funcionario)
+                    .Where(r => r.Funcionario.Cargo.ToLower() == cargo.ToLower())
+                    .AsQueryable();
+
+                if (data.HasValue)
+                {
+                    var dataFiltro = data.Value.Date;
+                    query = query.Where(r => r.DataHoraEntrada.Date == dataFiltro);
+                }
+                else if (dataInicio.HasValue || dataFim.HasValue)
+                {
+                    if (dataInicio.HasValue)
+                    {
+                        query = query.Where(r => r.DataHoraEntrada.Date >= dataInicio.Value.Date);
+                    }
+                    if (dataFim.HasValue)
+                    {
+                        query = query.Where(r => r.DataHoraEntrada.Date <= dataFim.Value.Date);
+                    }
+                }
+
+                var pontos = await query
+                    .OrderByDescending(r => r.DataHoraEntrada)
+                    .Select(r => new RegistroPontoResponseDto
+                    {
+                        Id = r.Id,
+                        FuncionarioId = r.FuncionarioId,
+                        NomeFuncionario = r.Funcionario.Nome,
+                        DataHoraEntrada = r.DataHoraEntrada,
+                        DataHoraSaida = r.DataHoraSaida,
+                        Duracao = r.DataHoraSaida.HasValue
+                            ? FormatDuration(r.DataHoraSaida.Value - r.DataHoraEntrada)
+                            : null
+                    })
+                    .ToListAsync();
+
+                _logger.LogInformation("Listagem de pontos por cargo realizada com sucesso. Cargo: {Cargo}, Total: {Count}", cargo, pontos.Count);
+                return Ok(pontos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao listar registros de ponto por cargo {Cargo}", cargo);
+                return StatusCode(500, "Erro interno do servidor");
+            }
+        }
+
+        /// <summary>
         /// Retorna todos os registros de ponto com filtros opcionais
         /// </summary>
         [HttpGet]

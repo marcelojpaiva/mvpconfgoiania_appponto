@@ -70,6 +70,7 @@ Com o backend rodando, acesse:
 
 #### Pontos
 - `GET /api/pontos` - Lista registros de ponto (com filtros)
+- `GET /api/pontos/por-cargo?cargo=DEV` - Lista registros de ponto filtrando por cargo
 - `POST /api/pontos` - Marca entrada
 - `PUT /api/pontos/{id}/saida` - Marca saída
 
